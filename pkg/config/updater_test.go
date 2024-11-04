@@ -192,6 +192,27 @@ func TestUpdateAuthConfig(t *testing.T) {
 		err := updater.UpdateAuthConfig(context.Background(), "test-project", auth{
 			Enabled:      true,
 			EnableSignup: true,
+			External: extProvider{
+				"apple":         {},
+				"azure":         {},
+				"bitbucket":     {},
+				"discord":       {},
+				"facebook":      {},
+				"github":        {},
+				"gitlab":        {},
+				"google":        {},
+				"keycloak":      {},
+				"linkedin":      {},
+				"linkedin_oidc": {},
+				"notion":        {},
+				"twitch":        {},
+				"twitter":       {},
+				"slack":         {},
+				"slack_oidc":    {},
+				"spotify":       {},
+				"workos":        {},
+				"zoom":          {},
+			},
 		})
 		// Check result
 		assert.NoError(t, err)

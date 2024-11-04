@@ -25,11 +25,11 @@ type (
 		MFA      mfa      `toml:"mfa"`
 		Sessions sessions `toml:"sessions"`
 
-		EnableSignup           bool                `toml:"enable_signup"`
-		EnableAnonymousSignIns bool                `toml:"enable_anonymous_sign_ins"`
-		Email                  email               `toml:"email"`
-		Sms                    sms                 `toml:"sms"`
-		External               map[string]provider `toml:"external"`
+		EnableSignup           bool        `toml:"enable_signup"`
+		EnableAnonymousSignIns bool        `toml:"enable_anonymous_sign_ins"`
+		Email                  email       `toml:"email"`
+		Sms                    sms         `toml:"sms"`
+		External               extProvider `toml:"external"`
 
 		// Custom secrets can be injected from .env file
 		JwtSecret      string `toml:"-" mapstructure:"jwt_secret"`
@@ -38,6 +38,8 @@ type (
 
 		ThirdParty thirdParty `toml:"third_party"`
 	}
+
+	extProvider map[string]provider
 
 	thirdParty struct {
 		Firebase tpaFirebase `toml:"firebase"`
@@ -191,6 +193,7 @@ func (a *auth) ToUpdateAuthConfigBody() v1API.UpdateAuthConfigBody {
 	}
 	a.Sms.updateAuthConfigBody(&body)
 	a.Hook.updateAuthConfigBody(&body)
+	a.External.updateAuthConfigBody(&body)
 	return body
 }
 
@@ -294,6 +297,160 @@ func (h hook) updateAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
 	}
 }
 
+func (p extProvider) updateAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
+	var prov provider
+	// Ignore deprecated fields: "linkedin", "slack"
+	prov = p["apple"]
+	body.ExternalAppleEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalAppleClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalAppleSecret = &prov.Secret
+	}
+	prov = p["azure"]
+	body.ExternalAzureEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalAzureClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalAzureSecret = &prov.Secret
+	}
+	if len(prov.Url) > 0 {
+		body.ExternalAzureUrl = &prov.Url
+	}
+	prov = p["bitbucket"]
+	body.ExternalBitbucketEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalBitbucketClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalBitbucketSecret = &prov.Secret
+	}
+	prov = p["discord"]
+	body.ExternalDiscordEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalDiscordClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalDiscordSecret = &prov.Secret
+	}
+	prov = p["facebook"]
+	body.ExternalFacebookEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalFacebookClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalFacebookSecret = &prov.Secret
+	}
+	prov = p["github"]
+	body.ExternalGithubEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalGithubClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalGithubSecret = &prov.Secret
+	}
+	prov = p["gitlab"]
+	body.ExternalGitlabEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalGitlabClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalGitlabSecret = &prov.Secret
+	}
+	if len(prov.Url) > 0 {
+		body.ExternalGitlabUrl = &prov.Url
+	}
+	prov = p["google"]
+	body.ExternalGoogleEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalGoogleClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalGoogleSecret = &prov.Secret
+	}
+	body.ExternalGoogleSkipNonceCheck = &prov.SkipNonceCheck
+	prov = p["keycloak"]
+	body.ExternalKeycloakEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalKeycloakClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalKeycloakSecret = &prov.Secret
+	}
+	if len(prov.Url) > 0 {
+		body.ExternalKeycloakUrl = &prov.Url
+	}
+	prov = p["linkedin_oidc"]
+	body.ExternalLinkedinOidcEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalLinkedinOidcClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalLinkedinOidcSecret = &prov.Secret
+	}
+	prov = p["notion"]
+	body.ExternalNotionEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalNotionClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalNotionSecret = &prov.Secret
+	}
+	prov = p["slack_oidc"]
+	body.ExternalSlackOidcEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalSlackOidcClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalSlackOidcSecret = &prov.Secret
+	}
+	prov = p["spotify"]
+	body.ExternalSpotifyEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalSpotifyClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalSpotifySecret = &prov.Secret
+	}
+	prov = p["twitch"]
+	body.ExternalTwitchEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalTwitchClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalTwitchSecret = &prov.Secret
+	}
+	prov = p["twitter"]
+	body.ExternalTwitterEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalTwitterClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalTwitterSecret = &prov.Secret
+	}
+	prov = p["workos"]
+	body.ExternalWorkosEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalWorkosClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalWorkosSecret = &prov.Secret
+	}
+	if len(prov.Url) > 0 {
+		body.ExternalWorkosUrl = &prov.Url
+	}
+	prov = p["zoom"]
+	body.ExternalZoomEnabled = &prov.Enabled
+	if len(prov.ClientId) > 0 {
+		body.ExternalZoomClientId = &prov.ClientId
+	}
+	if len(prov.Secret) > 0 {
+		body.ExternalZoomSecret = &prov.Secret
+	}
+}
+
 func (a *auth) fromRemoteAuthConfig(remoteConfig v1API.AuthConfigResponse) auth {
 	result := *a
 	result.SiteUrl = cast.Val(remoteConfig.SiteUrl, "")
@@ -346,6 +503,97 @@ func (a *auth) fromRemoteAuthConfig(remoteConfig v1API.AuthConfigResponse) auth 
 	result.Hook.SendSMS.Enabled = cast.Val(remoteConfig.HookSendSmsEnabled, false)
 	result.Hook.SendSMS.URI = cast.Val(remoteConfig.HookSendSmsUri, "")
 	result.Hook.SendSMS.Secrets = cast.Val(remoteConfig.HookSendSmsSecrets, "")
+	// Provider config
+	result.External["apple"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalAppleEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalAppleClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalAppleSecret, ""),
+	}
+	result.External["azure"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalAzureEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalAzureClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalAzureSecret, ""),
+		Url:      cast.Val(remoteConfig.ExternalAzureUrl, ""),
+	}
+	result.External["bitbucket"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalBitbucketEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalBitbucketClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalBitbucketSecret, ""),
+	}
+	result.External["discord"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalDiscordEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalDiscordClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalDiscordSecret, ""),
+	}
+	result.External["facebook"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalFacebookEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalFacebookClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalFacebookSecret, ""),
+	}
+	result.External["github"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalGithubEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalGithubClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalGithubSecret, ""),
+	}
+	result.External["gitlab"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalGitlabEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalGitlabClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalGitlabSecret, ""),
+		Url:      cast.Val(remoteConfig.ExternalGitlabUrl, ""),
+	}
+	result.External["google"] = provider{
+		Enabled:        cast.Val(remoteConfig.ExternalGoogleEnabled, false),
+		ClientId:       cast.Val(remoteConfig.ExternalGoogleClientId, ""),
+		Secret:         cast.Val(remoteConfig.ExternalGoogleSecret, ""),
+		SkipNonceCheck: cast.Val(remoteConfig.ExternalGoogleSkipNonceCheck, false),
+	}
+	result.External["keycloak"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalKeycloakEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalKeycloakClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalKeycloakSecret, ""),
+		Url:      cast.Val(remoteConfig.ExternalKeycloakUrl, ""),
+	}
+	result.External["linkedin_oidc"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalLinkedinOidcEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalLinkedinOidcClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalLinkedinOidcSecret, ""),
+	}
+	result.External["notion"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalNotionEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalNotionClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalNotionSecret, ""),
+	}
+	result.External["slack_oidc"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalSlackOidcEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalSlackOidcClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalSlackOidcSecret, ""),
+	}
+	result.External["spotify"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalSpotifyEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalSpotifyClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalSpotifySecret, ""),
+	}
+	result.External["twitch"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalTwitchEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalTwitchClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalTwitchSecret, ""),
+	}
+	result.External["twitter"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalTwitterEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalTwitterClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalTwitterSecret, ""),
+	}
+	result.External["workos"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalWorkosEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalWorkosClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalWorkosSecret, ""),
+		Url:      cast.Val(remoteConfig.ExternalWorkosUrl, ""),
+	}
+	result.External["zoom"] = provider{
+		Enabled:  cast.Val(remoteConfig.ExternalZoomEnabled, false),
+		ClientId: cast.Val(remoteConfig.ExternalZoomClientId, ""),
+		Secret:   cast.Val(remoteConfig.ExternalZoomSecret, ""),
+	}
 	return result
 }
 
@@ -403,6 +651,9 @@ func (a *auth) hashSecrets(key string) auth {
 			result.External[name] = provider
 		}
 	}
+	// Hide deprecated fields
+	delete(a.External, "slack")
+	delete(a.External, "linkedin")
 	// TODO: support SecurityCaptchaSecret in local config
 	return result
 }
