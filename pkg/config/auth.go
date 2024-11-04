@@ -189,7 +189,70 @@ func (a *auth) ToUpdateAuthConfigBody() v1API.UpdateAuthConfigBody {
 		DisableSignup:                     cast.Ptr(!a.EnableSignup),
 		ExternalAnonymousUsersEnabled:     &a.EnableAnonymousSignIns,
 	}
+	a.Sms.updateAuthConfigBody(&body)
 	return body
+}
+
+func (s sms) updateAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
+	body.ExternalPhoneEnabled = &s.EnableSignup
+	body.SmsMaxFrequency = cast.Ptr(int(s.MaxFrequency.Seconds()))
+	body.SmsAutoconfirm = &s.EnableConfirmations
+	body.SmsTemplate = &s.Template
+	if otpString := mapToEnv(s.TestOTP); len(otpString) > 0 {
+		body.SmsTestOtp = &otpString
+	}
+	switch {
+	case s.Twilio.Enabled:
+		body.SmsProvider = cast.Ptr("twilio")
+	case s.TwilioVerify.Enabled:
+		body.SmsProvider = cast.Ptr("twilio_verify")
+	case s.Messagebird.Enabled:
+		body.SmsProvider = cast.Ptr("messagebird")
+	case s.Textlocal.Enabled:
+		body.SmsProvider = cast.Ptr("textlocal")
+	case s.Vonage.Enabled:
+		body.SmsProvider = cast.Ptr("vonage")
+	}
+	// TODO: simplify this logic by making local config pointers?
+	if len(s.Twilio.AccountSid) > 0 {
+		body.SmsTwilioAccountSid = &s.Twilio.AccountSid
+	}
+	if len(s.Twilio.AuthToken) > 0 {
+		body.SmsTwilioAuthToken = &s.Twilio.AuthToken
+	}
+	if len(s.Twilio.MessageServiceSid) > 0 {
+		body.SmsTwilioMessageServiceSid = &s.Twilio.MessageServiceSid
+	}
+	if len(s.TwilioVerify.AccountSid) > 0 {
+		body.SmsTwilioVerifyAccountSid = &s.TwilioVerify.AccountSid
+	}
+	if len(s.TwilioVerify.AuthToken) > 0 {
+		body.SmsTwilioVerifyAuthToken = &s.TwilioVerify.AuthToken
+	}
+	if len(s.TwilioVerify.MessageServiceSid) > 0 {
+		body.SmsTwilioVerifyMessageServiceSid = &s.TwilioVerify.MessageServiceSid
+	}
+	if len(s.Messagebird.AccessKey) > 0 {
+		body.SmsMessagebirdAccessKey = &s.Messagebird.AccessKey
+	}
+	if len(s.Messagebird.Originator) > 0 {
+		body.SmsMessagebirdOriginator = &s.Messagebird.Originator
+	}
+	if len(s.Textlocal.ApiKey) > 0 {
+		body.SmsTextlocalApiKey = &s.Textlocal.ApiKey
+	}
+	if len(s.Textlocal.Sender) > 0 {
+		body.SmsTextlocalSender = &s.Textlocal.Sender
+	}
+	if len(s.Vonage.ApiKey) > 0 {
+		body.SmsVonageApiKey = &s.Vonage.ApiKey
+	}
+	if len(s.Vonage.ApiSecret) > 0 {
+		body.SmsVonageApiSecret = &s.Vonage.ApiSecret
+	}
+	if len(s.Vonage.From) > 0 {
+		body.SmsVonageFrom = &s.Vonage.From
+	}
 }
 
 func (a *auth) fromRemoteAuthConfig(remoteConfig v1API.AuthConfigResponse) auth {
@@ -202,6 +265,32 @@ func (a *auth) fromRemoteAuthConfig(remoteConfig v1API.AuthConfigResponse) auth 
 	result.EnableManualLinking = cast.Val(remoteConfig.SecurityManualLinkingEnabled, false)
 	result.EnableSignup = !cast.Val(remoteConfig.DisableSignup, false)
 	result.EnableAnonymousSignIns = cast.Val(remoteConfig.ExternalAnonymousUsersEnabled, false)
+	// SMS config
+	result.Sms.EnableSignup = cast.Val(remoteConfig.ExternalPhoneEnabled, false)
+	result.Sms.MaxFrequency = time.Duration(cast.Val(remoteConfig.SmsMaxFrequency, 0)) * time.Second
+	result.Sms.EnableConfirmations = cast.Val(remoteConfig.SmsAutoconfirm, false)
+	result.Sms.Template = cast.Val(remoteConfig.SmsTemplate, "")
+	result.Sms.TestOTP = envToMap(cast.Val(remoteConfig.SmsTestOtp, ""))
+	if provider := cast.Val(remoteConfig.SmsProvider, ""); len(provider) > 0 {
+		result.Sms.Twilio.Enabled = provider == "twilio"
+		result.Sms.TwilioVerify.Enabled = provider == "twilio_verify"
+		result.Sms.Messagebird.Enabled = provider == "messagebird"
+		result.Sms.Textlocal.Enabled = provider == "textlocal"
+		result.Sms.Vonage.Enabled = provider == "vonage"
+	}
+	result.Sms.Twilio.AccountSid = cast.Val(remoteConfig.SmsTwilioAccountSid, "")
+	result.Sms.Twilio.AuthToken = cast.Val(remoteConfig.SmsTwilioAuthToken, "")
+	result.Sms.Twilio.MessageServiceSid = cast.Val(remoteConfig.SmsTwilioMessageServiceSid, "")
+	result.Sms.TwilioVerify.AccountSid = cast.Val(remoteConfig.SmsTwilioVerifyAccountSid, "")
+	result.Sms.TwilioVerify.AuthToken = cast.Val(remoteConfig.SmsTwilioVerifyAuthToken, "")
+	result.Sms.TwilioVerify.MessageServiceSid = cast.Val(remoteConfig.SmsTwilioVerifyMessageServiceSid, "")
+	result.Sms.Messagebird.AccessKey = cast.Val(remoteConfig.SmsMessagebirdAccessKey, "")
+	result.Sms.Messagebird.Originator = cast.Val(remoteConfig.SmsMessagebirdOriginator, "")
+	result.Sms.Textlocal.ApiKey = cast.Val(remoteConfig.SmsTextlocalApiKey, "")
+	result.Sms.Textlocal.Sender = cast.Val(remoteConfig.SmsTextlocalSender, "")
+	result.Sms.Vonage.ApiKey = cast.Val(remoteConfig.SmsVonageApiKey, "")
+	result.Sms.Vonage.ApiSecret = cast.Val(remoteConfig.SmsVonageApiSecret, "")
+	result.Sms.Vonage.From = cast.Val(remoteConfig.SmsVonageFrom, "")
 	return result
 }
 
