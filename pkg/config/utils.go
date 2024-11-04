@@ -1,6 +1,9 @@
 package config
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -110,4 +113,10 @@ func envToMap(input string) map[string]string {
 		}
 	}
 	return result
+}
+
+func sha256Hmac(key, value string) string {
+	h := hmac.New(sha256.New, []byte(key))
+	h.Write([]byte(value))
+	return hex.EncodeToString(h.Sum(nil))
 }

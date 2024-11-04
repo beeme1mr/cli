@@ -349,9 +349,9 @@ func (a *auth) fromRemoteAuthConfig(remoteConfig v1API.AuthConfigResponse) auth 
 	return result
 }
 
-func (a *auth) DiffWithRemote(remoteConfig v1API.AuthConfigResponse) ([]byte, error) {
+func (a *auth) DiffWithRemote(projectRef string, remoteConfig v1API.AuthConfigResponse) ([]byte, error) {
 	// Convert the config values into easily comparable remoteConfig values
-	currentValue, err := ToTomlBytes(a)
+	currentValue, err := ToTomlBytes(a.hashSecrets(projectRef))
 	if err != nil {
 		return nil, err
 	}
@@ -360,4 +360,49 @@ func (a *auth) DiffWithRemote(remoteConfig v1API.AuthConfigResponse) ([]byte, er
 		return nil, err
 	}
 	return diff.Diff("remote[auth]", remoteCompare, "local[auth]", currentValue), nil
+}
+
+func (a *auth) hashSecrets(key string) auth {
+	result := *a
+	if len(result.Email.Smtp.Pass) > 0 {
+		result.Email.Smtp.Pass = sha256Hmac(key, result.Email.Smtp.Pass)
+	}
+	if len(result.Sms.Twilio.AuthToken) > 0 {
+		result.Sms.Twilio.AuthToken = sha256Hmac(key, result.Sms.Twilio.AuthToken)
+	}
+	if len(result.Sms.TwilioVerify.AuthToken) > 0 {
+		result.Sms.TwilioVerify.AuthToken = sha256Hmac(key, result.Sms.TwilioVerify.AuthToken)
+	}
+	if len(result.Sms.Messagebird.AccessKey) > 0 {
+		result.Sms.Messagebird.AccessKey = sha256Hmac(key, result.Sms.Messagebird.AccessKey)
+	}
+	if len(result.Sms.Textlocal.ApiKey) > 0 {
+		result.Sms.Textlocal.ApiKey = sha256Hmac(key, result.Sms.Textlocal.ApiKey)
+	}
+	if len(result.Sms.Vonage.ApiSecret) > 0 {
+		result.Sms.Vonage.ApiSecret = sha256Hmac(key, result.Sms.Vonage.ApiSecret)
+	}
+	if len(result.Hook.MFAVerificationAttempt.Secrets) > 0 {
+		result.Hook.MFAVerificationAttempt.Secrets = sha256Hmac(key, result.Hook.MFAVerificationAttempt.Secrets)
+	}
+	if len(result.Hook.PasswordVerificationAttempt.Secrets) > 0 {
+		result.Hook.PasswordVerificationAttempt.Secrets = sha256Hmac(key, result.Hook.PasswordVerificationAttempt.Secrets)
+	}
+	if len(result.Hook.CustomAccessToken.Secrets) > 0 {
+		result.Hook.CustomAccessToken.Secrets = sha256Hmac(key, result.Hook.CustomAccessToken.Secrets)
+	}
+	if len(result.Hook.SendSMS.Secrets) > 0 {
+		result.Hook.SendSMS.Secrets = sha256Hmac(key, result.Hook.SendSMS.Secrets)
+	}
+	if len(result.Hook.SendEmail.Secrets) > 0 {
+		result.Hook.SendEmail.Secrets = sha256Hmac(key, result.Hook.SendEmail.Secrets)
+	}
+	for name, provider := range result.External {
+		if len(provider.Secret) > 0 {
+			provider.Secret = sha256Hmac(key, result.Hook.SendEmail.Secrets)
+			result.External[name] = provider
+		}
+	}
+	// TODO: support SecurityCaptchaSecret in local config
+	return result
 }
