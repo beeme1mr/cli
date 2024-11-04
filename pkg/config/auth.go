@@ -190,6 +190,7 @@ func (a *auth) ToUpdateAuthConfigBody() v1API.UpdateAuthConfigBody {
 		ExternalAnonymousUsersEnabled:     &a.EnableAnonymousSignIns,
 	}
 	a.Sms.updateAuthConfigBody(&body)
+	a.Hook.updateAuthConfigBody(&body)
 	return body
 }
 
@@ -255,6 +256,44 @@ func (s sms) updateAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
 	}
 }
 
+func (h hook) updateAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
+	body.HookCustomAccessTokenEnabled = &h.CustomAccessToken.Enabled
+	if len(h.CustomAccessToken.URI) > 0 {
+		body.HookCustomAccessTokenUri = &h.CustomAccessToken.URI
+	}
+	if len(h.CustomAccessToken.Secrets) > 0 {
+		body.HookCustomAccessTokenSecrets = &h.CustomAccessToken.Secrets
+	}
+	body.HookMfaVerificationAttemptEnabled = &h.MFAVerificationAttempt.Enabled
+	if len(h.MFAVerificationAttempt.URI) > 0 {
+		body.HookMfaVerificationAttemptUri = &h.MFAVerificationAttempt.URI
+	}
+	if len(h.MFAVerificationAttempt.Secrets) > 0 {
+		body.HookMfaVerificationAttemptSecrets = &h.MFAVerificationAttempt.Secrets
+	}
+	body.HookPasswordVerificationAttemptEnabled = &h.PasswordVerificationAttempt.Enabled
+	if len(h.PasswordVerificationAttempt.URI) > 0 {
+		body.HookPasswordVerificationAttemptUri = &h.PasswordVerificationAttempt.URI
+	}
+	if len(h.PasswordVerificationAttempt.Secrets) > 0 {
+		body.HookPasswordVerificationAttemptSecrets = &h.PasswordVerificationAttempt.Secrets
+	}
+	body.HookSendEmailEnabled = &h.SendEmail.Enabled
+	if len(h.SendEmail.URI) > 0 {
+		body.HookSendEmailUri = &h.SendEmail.URI
+	}
+	if len(h.SendEmail.Secrets) > 0 {
+		body.HookSendEmailSecrets = &h.SendEmail.Secrets
+	}
+	body.HookSendSmsEnabled = &h.SendSMS.Enabled
+	if len(h.SendSMS.URI) > 0 {
+		body.HookSendSmsUri = &h.SendSMS.URI
+	}
+	if len(h.SendSMS.Secrets) > 0 {
+		body.HookSendSmsSecrets = &h.SendSMS.Secrets
+	}
+}
+
 func (a *auth) fromRemoteAuthConfig(remoteConfig v1API.AuthConfigResponse) auth {
 	result := *a
 	result.SiteUrl = cast.Val(remoteConfig.SiteUrl, "")
@@ -291,6 +330,22 @@ func (a *auth) fromRemoteAuthConfig(remoteConfig v1API.AuthConfigResponse) auth 
 	result.Sms.Vonage.ApiKey = cast.Val(remoteConfig.SmsVonageApiKey, "")
 	result.Sms.Vonage.ApiSecret = cast.Val(remoteConfig.SmsVonageApiSecret, "")
 	result.Sms.Vonage.From = cast.Val(remoteConfig.SmsVonageFrom, "")
+	// Hooks config
+	result.Hook.CustomAccessToken.Enabled = cast.Val(remoteConfig.HookCustomAccessTokenEnabled, false)
+	result.Hook.CustomAccessToken.URI = cast.Val(remoteConfig.HookCustomAccessTokenUri, "")
+	result.Hook.CustomAccessToken.Secrets = cast.Val(remoteConfig.HookCustomAccessTokenSecrets, "")
+	result.Hook.MFAVerificationAttempt.Enabled = cast.Val(remoteConfig.HookMfaVerificationAttemptEnabled, false)
+	result.Hook.MFAVerificationAttempt.URI = cast.Val(remoteConfig.HookMfaVerificationAttemptUri, "")
+	result.Hook.MFAVerificationAttempt.Secrets = cast.Val(remoteConfig.HookMfaVerificationAttemptSecrets, "")
+	result.Hook.PasswordVerificationAttempt.Enabled = cast.Val(remoteConfig.HookPasswordVerificationAttemptEnabled, false)
+	result.Hook.PasswordVerificationAttempt.URI = cast.Val(remoteConfig.HookPasswordVerificationAttemptUri, "")
+	result.Hook.PasswordVerificationAttempt.Secrets = cast.Val(remoteConfig.HookPasswordVerificationAttemptSecrets, "")
+	result.Hook.SendEmail.Enabled = cast.Val(remoteConfig.HookSendEmailEnabled, false)
+	result.Hook.SendEmail.URI = cast.Val(remoteConfig.HookSendEmailUri, "")
+	result.Hook.SendEmail.Secrets = cast.Val(remoteConfig.HookSendEmailSecrets, "")
+	result.Hook.SendSMS.Enabled = cast.Val(remoteConfig.HookSendSmsEnabled, false)
+	result.Hook.SendSMS.URI = cast.Val(remoteConfig.HookSendSmsUri, "")
+	result.Hook.SendSMS.Secrets = cast.Val(remoteConfig.HookSendSmsSecrets, "")
 	return result
 }
 
