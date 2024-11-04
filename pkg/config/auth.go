@@ -191,13 +191,29 @@ func (a *auth) ToUpdateAuthConfigBody() v1API.UpdateAuthConfigBody {
 		DisableSignup:                     cast.Ptr(!a.EnableSignup),
 		ExternalAnonymousUsersEnabled:     &a.EnableAnonymousSignIns,
 	}
-	a.Sms.updateAuthConfigBody(&body)
-	a.Hook.updateAuthConfigBody(&body)
-	a.External.updateAuthConfigBody(&body)
+	a.Sms.toAuthConfigBody(&body)
+	a.Hook.toAuthConfigBody(&body)
+	a.External.toAuthConfigBody(&body)
 	return body
 }
 
-func (s sms) updateAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
+func (a *auth) fromRemoteAuthConfig(remoteConfig v1API.AuthConfigResponse) auth {
+	result := *a
+	result.SiteUrl = cast.Val(remoteConfig.SiteUrl, "")
+	result.AdditionalRedirectUrls = strToArr(cast.Val(remoteConfig.UriAllowList, ""))
+	result.JwtExpiry = cast.IntToUint(cast.Val(remoteConfig.JwtExp, 0))
+	result.EnableRefreshTokenRotation = cast.Val(remoteConfig.RefreshTokenRotationEnabled, false)
+	result.RefreshTokenReuseInterval = cast.IntToUint(cast.Val(remoteConfig.SecurityRefreshTokenReuseInterval, 0))
+	result.EnableManualLinking = cast.Val(remoteConfig.SecurityManualLinkingEnabled, false)
+	result.EnableSignup = !cast.Val(remoteConfig.DisableSignup, false)
+	result.EnableAnonymousSignIns = cast.Val(remoteConfig.ExternalAnonymousUsersEnabled, false)
+	result.Sms.fromAuthConfig(remoteConfig)
+	result.Hook.fromAuthConfig(remoteConfig)
+	result.External = newExternalProvider(remoteConfig)
+	return result
+}
+
+func (s sms) toAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
 	body.ExternalPhoneEnabled = &s.EnableSignup
 	body.SmsMaxFrequency = cast.Ptr(int(s.MaxFrequency.Seconds()))
 	body.SmsAutoconfirm = &s.EnableConfirmations
@@ -259,7 +275,35 @@ func (s sms) updateAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
 	}
 }
 
-func (h hook) updateAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
+func (s *sms) fromAuthConfig(remoteConfig v1API.AuthConfigResponse) {
+	s.EnableSignup = cast.Val(remoteConfig.ExternalPhoneEnabled, false)
+	s.MaxFrequency = time.Duration(cast.Val(remoteConfig.SmsMaxFrequency, 0)) * time.Second
+	s.EnableConfirmations = cast.Val(remoteConfig.SmsAutoconfirm, false)
+	s.Template = cast.Val(remoteConfig.SmsTemplate, "")
+	s.TestOTP = envToMap(cast.Val(remoteConfig.SmsTestOtp, ""))
+	if provider := cast.Val(remoteConfig.SmsProvider, ""); len(provider) > 0 {
+		s.Twilio.Enabled = provider == "twilio"
+		s.TwilioVerify.Enabled = provider == "twilio_verify"
+		s.Messagebird.Enabled = provider == "messagebird"
+		s.Textlocal.Enabled = provider == "textlocal"
+		s.Vonage.Enabled = provider == "vonage"
+	}
+	s.Twilio.AccountSid = cast.Val(remoteConfig.SmsTwilioAccountSid, "")
+	s.Twilio.AuthToken = cast.Val(remoteConfig.SmsTwilioAuthToken, "")
+	s.Twilio.MessageServiceSid = cast.Val(remoteConfig.SmsTwilioMessageServiceSid, "")
+	s.TwilioVerify.AccountSid = cast.Val(remoteConfig.SmsTwilioVerifyAccountSid, "")
+	s.TwilioVerify.AuthToken = cast.Val(remoteConfig.SmsTwilioVerifyAuthToken, "")
+	s.TwilioVerify.MessageServiceSid = cast.Val(remoteConfig.SmsTwilioVerifyMessageServiceSid, "")
+	s.Messagebird.AccessKey = cast.Val(remoteConfig.SmsMessagebirdAccessKey, "")
+	s.Messagebird.Originator = cast.Val(remoteConfig.SmsMessagebirdOriginator, "")
+	s.Textlocal.ApiKey = cast.Val(remoteConfig.SmsTextlocalApiKey, "")
+	s.Textlocal.Sender = cast.Val(remoteConfig.SmsTextlocalSender, "")
+	s.Vonage.ApiKey = cast.Val(remoteConfig.SmsVonageApiKey, "")
+	s.Vonage.ApiSecret = cast.Val(remoteConfig.SmsVonageApiSecret, "")
+	s.Vonage.From = cast.Val(remoteConfig.SmsVonageFrom, "")
+}
+
+func (h hook) toAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
 	body.HookCustomAccessTokenEnabled = &h.CustomAccessToken.Enabled
 	if len(h.CustomAccessToken.URI) > 0 {
 		body.HookCustomAccessTokenUri = &h.CustomAccessToken.URI
@@ -297,7 +341,25 @@ func (h hook) updateAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
 	}
 }
 
-func (p extProvider) updateAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
+func (h *hook) fromAuthConfig(remoteConfig v1API.AuthConfigResponse) {
+	h.CustomAccessToken.Enabled = cast.Val(remoteConfig.HookCustomAccessTokenEnabled, false)
+	h.CustomAccessToken.URI = cast.Val(remoteConfig.HookCustomAccessTokenUri, "")
+	h.CustomAccessToken.Secrets = cast.Val(remoteConfig.HookCustomAccessTokenSecrets, "")
+	h.MFAVerificationAttempt.Enabled = cast.Val(remoteConfig.HookMfaVerificationAttemptEnabled, false)
+	h.MFAVerificationAttempt.URI = cast.Val(remoteConfig.HookMfaVerificationAttemptUri, "")
+	h.MFAVerificationAttempt.Secrets = cast.Val(remoteConfig.HookMfaVerificationAttemptSecrets, "")
+	h.PasswordVerificationAttempt.Enabled = cast.Val(remoteConfig.HookPasswordVerificationAttemptEnabled, false)
+	h.PasswordVerificationAttempt.URI = cast.Val(remoteConfig.HookPasswordVerificationAttemptUri, "")
+	h.PasswordVerificationAttempt.Secrets = cast.Val(remoteConfig.HookPasswordVerificationAttemptSecrets, "")
+	h.SendEmail.Enabled = cast.Val(remoteConfig.HookSendEmailEnabled, false)
+	h.SendEmail.URI = cast.Val(remoteConfig.HookSendEmailUri, "")
+	h.SendEmail.Secrets = cast.Val(remoteConfig.HookSendEmailSecrets, "")
+	h.SendSMS.Enabled = cast.Val(remoteConfig.HookSendSmsEnabled, false)
+	h.SendSMS.URI = cast.Val(remoteConfig.HookSendSmsUri, "")
+	h.SendSMS.Secrets = cast.Val(remoteConfig.HookSendSmsSecrets, "")
+}
+
+func (p extProvider) toAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
 	var prov provider
 	// Ignore deprecated fields: "linkedin", "slack"
 	prov = p["apple"]
@@ -451,150 +513,99 @@ func (p extProvider) updateAuthConfigBody(body *v1API.UpdateAuthConfigBody) {
 	}
 }
 
-func (a *auth) fromRemoteAuthConfig(remoteConfig v1API.AuthConfigResponse) auth {
-	result := *a
-	result.SiteUrl = cast.Val(remoteConfig.SiteUrl, "")
-	result.AdditionalRedirectUrls = strToArr(cast.Val(remoteConfig.UriAllowList, ""))
-	result.JwtExpiry = cast.IntToUint(cast.Val(remoteConfig.JwtExp, 0))
-	result.EnableRefreshTokenRotation = cast.Val(remoteConfig.RefreshTokenRotationEnabled, false)
-	result.RefreshTokenReuseInterval = cast.IntToUint(cast.Val(remoteConfig.SecurityRefreshTokenReuseInterval, 0))
-	result.EnableManualLinking = cast.Val(remoteConfig.SecurityManualLinkingEnabled, false)
-	result.EnableSignup = !cast.Val(remoteConfig.DisableSignup, false)
-	result.EnableAnonymousSignIns = cast.Val(remoteConfig.ExternalAnonymousUsersEnabled, false)
-	// SMS config
-	result.Sms.EnableSignup = cast.Val(remoteConfig.ExternalPhoneEnabled, false)
-	result.Sms.MaxFrequency = time.Duration(cast.Val(remoteConfig.SmsMaxFrequency, 0)) * time.Second
-	result.Sms.EnableConfirmations = cast.Val(remoteConfig.SmsAutoconfirm, false)
-	result.Sms.Template = cast.Val(remoteConfig.SmsTemplate, "")
-	result.Sms.TestOTP = envToMap(cast.Val(remoteConfig.SmsTestOtp, ""))
-	if provider := cast.Val(remoteConfig.SmsProvider, ""); len(provider) > 0 {
-		result.Sms.Twilio.Enabled = provider == "twilio"
-		result.Sms.TwilioVerify.Enabled = provider == "twilio_verify"
-		result.Sms.Messagebird.Enabled = provider == "messagebird"
-		result.Sms.Textlocal.Enabled = provider == "textlocal"
-		result.Sms.Vonage.Enabled = provider == "vonage"
-	}
-	result.Sms.Twilio.AccountSid = cast.Val(remoteConfig.SmsTwilioAccountSid, "")
-	result.Sms.Twilio.AuthToken = cast.Val(remoteConfig.SmsTwilioAuthToken, "")
-	result.Sms.Twilio.MessageServiceSid = cast.Val(remoteConfig.SmsTwilioMessageServiceSid, "")
-	result.Sms.TwilioVerify.AccountSid = cast.Val(remoteConfig.SmsTwilioVerifyAccountSid, "")
-	result.Sms.TwilioVerify.AuthToken = cast.Val(remoteConfig.SmsTwilioVerifyAuthToken, "")
-	result.Sms.TwilioVerify.MessageServiceSid = cast.Val(remoteConfig.SmsTwilioVerifyMessageServiceSid, "")
-	result.Sms.Messagebird.AccessKey = cast.Val(remoteConfig.SmsMessagebirdAccessKey, "")
-	result.Sms.Messagebird.Originator = cast.Val(remoteConfig.SmsMessagebirdOriginator, "")
-	result.Sms.Textlocal.ApiKey = cast.Val(remoteConfig.SmsTextlocalApiKey, "")
-	result.Sms.Textlocal.Sender = cast.Val(remoteConfig.SmsTextlocalSender, "")
-	result.Sms.Vonage.ApiKey = cast.Val(remoteConfig.SmsVonageApiKey, "")
-	result.Sms.Vonage.ApiSecret = cast.Val(remoteConfig.SmsVonageApiSecret, "")
-	result.Sms.Vonage.From = cast.Val(remoteConfig.SmsVonageFrom, "")
-	// Hooks config
-	result.Hook.CustomAccessToken.Enabled = cast.Val(remoteConfig.HookCustomAccessTokenEnabled, false)
-	result.Hook.CustomAccessToken.URI = cast.Val(remoteConfig.HookCustomAccessTokenUri, "")
-	result.Hook.CustomAccessToken.Secrets = cast.Val(remoteConfig.HookCustomAccessTokenSecrets, "")
-	result.Hook.MFAVerificationAttempt.Enabled = cast.Val(remoteConfig.HookMfaVerificationAttemptEnabled, false)
-	result.Hook.MFAVerificationAttempt.URI = cast.Val(remoteConfig.HookMfaVerificationAttemptUri, "")
-	result.Hook.MFAVerificationAttempt.Secrets = cast.Val(remoteConfig.HookMfaVerificationAttemptSecrets, "")
-	result.Hook.PasswordVerificationAttempt.Enabled = cast.Val(remoteConfig.HookPasswordVerificationAttemptEnabled, false)
-	result.Hook.PasswordVerificationAttempt.URI = cast.Val(remoteConfig.HookPasswordVerificationAttemptUri, "")
-	result.Hook.PasswordVerificationAttempt.Secrets = cast.Val(remoteConfig.HookPasswordVerificationAttemptSecrets, "")
-	result.Hook.SendEmail.Enabled = cast.Val(remoteConfig.HookSendEmailEnabled, false)
-	result.Hook.SendEmail.URI = cast.Val(remoteConfig.HookSendEmailUri, "")
-	result.Hook.SendEmail.Secrets = cast.Val(remoteConfig.HookSendEmailSecrets, "")
-	result.Hook.SendSMS.Enabled = cast.Val(remoteConfig.HookSendSmsEnabled, false)
-	result.Hook.SendSMS.URI = cast.Val(remoteConfig.HookSendSmsUri, "")
-	result.Hook.SendSMS.Secrets = cast.Val(remoteConfig.HookSendSmsSecrets, "")
-	// Provider config
-	result.External["apple"] = provider{
+func newExternalProvider(remoteConfig v1API.AuthConfigResponse) extProvider {
+	p := make(map[string]provider, 17)
+	p["apple"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalAppleEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalAppleClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalAppleSecret, ""),
 	}
-	result.External["azure"] = provider{
+	p["azure"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalAzureEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalAzureClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalAzureSecret, ""),
 		Url:      cast.Val(remoteConfig.ExternalAzureUrl, ""),
 	}
-	result.External["bitbucket"] = provider{
+	p["bitbucket"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalBitbucketEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalBitbucketClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalBitbucketSecret, ""),
 	}
-	result.External["discord"] = provider{
+	p["discord"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalDiscordEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalDiscordClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalDiscordSecret, ""),
 	}
-	result.External["facebook"] = provider{
+	p["facebook"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalFacebookEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalFacebookClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalFacebookSecret, ""),
 	}
-	result.External["github"] = provider{
+	p["github"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalGithubEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalGithubClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalGithubSecret, ""),
 	}
-	result.External["gitlab"] = provider{
+	p["gitlab"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalGitlabEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalGitlabClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalGitlabSecret, ""),
 		Url:      cast.Val(remoteConfig.ExternalGitlabUrl, ""),
 	}
-	result.External["google"] = provider{
+	p["google"] = provider{
 		Enabled:        cast.Val(remoteConfig.ExternalGoogleEnabled, false),
 		ClientId:       cast.Val(remoteConfig.ExternalGoogleClientId, ""),
 		Secret:         cast.Val(remoteConfig.ExternalGoogleSecret, ""),
 		SkipNonceCheck: cast.Val(remoteConfig.ExternalGoogleSkipNonceCheck, false),
 	}
-	result.External["keycloak"] = provider{
+	p["keycloak"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalKeycloakEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalKeycloakClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalKeycloakSecret, ""),
 		Url:      cast.Val(remoteConfig.ExternalKeycloakUrl, ""),
 	}
-	result.External["linkedin_oidc"] = provider{
+	p["linkedin_oidc"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalLinkedinOidcEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalLinkedinOidcClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalLinkedinOidcSecret, ""),
 	}
-	result.External["notion"] = provider{
+	p["notion"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalNotionEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalNotionClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalNotionSecret, ""),
 	}
-	result.External["slack_oidc"] = provider{
+	p["slack_oidc"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalSlackOidcEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalSlackOidcClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalSlackOidcSecret, ""),
 	}
-	result.External["spotify"] = provider{
+	p["spotify"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalSpotifyEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalSpotifyClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalSpotifySecret, ""),
 	}
-	result.External["twitch"] = provider{
+	p["twitch"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalTwitchEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalTwitchClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalTwitchSecret, ""),
 	}
-	result.External["twitter"] = provider{
+	p["twitter"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalTwitterEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalTwitterClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalTwitterSecret, ""),
 	}
-	result.External["workos"] = provider{
+	p["workos"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalWorkosEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalWorkosClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalWorkosSecret, ""),
 		Url:      cast.Val(remoteConfig.ExternalWorkosUrl, ""),
 	}
-	result.External["zoom"] = provider{
+	p["zoom"] = provider{
 		Enabled:  cast.Val(remoteConfig.ExternalZoomEnabled, false),
 		ClientId: cast.Val(remoteConfig.ExternalZoomClientId, ""),
 		Secret:   cast.Val(remoteConfig.ExternalZoomSecret, ""),
 	}
-	return result
+	return p
 }
 
 func (a *auth) DiffWithRemote(projectRef string, remoteConfig v1API.AuthConfigResponse) ([]byte, error) {
